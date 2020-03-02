@@ -1,6 +1,6 @@
-# System logger for Odroid XU3 based off of ftrace
+# System logger for Odroid XU3
 
-The system logger (syslogger) creates and traces a number of custom trace points that extract system information from a combination of sysfs, kernel stats and device drivers.
+The system logger (syslogger) creates and traces, using ftrace, a number of custom trace points that extract system information from a combination of sysfs, kernel stats and device drivers.
 
 The system logger implements custom tracing for the following:
 
@@ -30,3 +30,8 @@ The system logger implements custom tracing for the following:
     - TX
 
 Syslogger is also used as the trace backend for [BrezeFlow](https://github.com/alxhoff/BrezeFlow) by encorporating automated tracing of scheduling operations and binder transactions needed for the interpolation of system execution flows.
+
+# Authors
+
+- Alex Hoffman (alex.hoffman@tum.de)
+- David Hildenbrand (davidhildenbrand@gmail.com)

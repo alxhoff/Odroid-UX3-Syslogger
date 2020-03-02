@@ -1,0 +1,3 @@
+[submodule "opengl_mods/android_frameworks_native_new"]
+	path = opengl_mods/android_frameworks_native_new
+	url = https://github.com/alxhoff/android_frameworks_native_new.git
