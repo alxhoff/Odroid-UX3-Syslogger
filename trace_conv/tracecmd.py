@@ -62,7 +62,7 @@ class Event(object, DictMixin):
         self._format = format
 
     def __str__(self):
-        return "%d.%d CPU%d %s: pid=%d comm=%s type=%d" % \
+        return "%d.%09d CPU%d %s: pid=%d comm=%s type=%d" % \
                (self.ts/1000000000, self.ts%1000000000, self.cpu, self.name,
                 self.num_field("common_pid"), self.comm, self.type)
 
@@ -70,7 +70,7 @@ class Event(object, DictMixin):
         free_record(self._record)
 
     def __getitem__(self, n):
-        f = pevent_find_field(self._format, n)
+        f = tep_find_field(self._format, n)
         if f is None:
             raise KeyError("no field '%s'" % n)
         return Field(self._record, f)
@@ -80,11 +80,11 @@ class Event(object, DictMixin):
 
     @cached_property
     def comm(self):
-        return pevent_data_comm_from_pid(self._pevent, self.pid)
+        return tep_data_comm_from_pid(self._pevent, self.pid)
 
     @cached_property
     def cpu(self):
-        return pevent_record_cpu_get(self._record)
+        return tep_record_cpu_get(self._record)
 
     @cached_property
     def name(self):
@@ -92,27 +92,27 @@ class Event(object, DictMixin):
 
     @cached_property
     def pid(self):
-        return pevent_data_pid(self._pevent, self._record)
+        return tep_data_pid(self._pevent, self._record)
 
     @cached_property
     def ts(self):
-        return pevent_record_ts_get(self._record)
+        return tep_record_ts_get(self._record)
 
     @cached_property
     def type(self):
-        return pevent_data_type(self._pevent, self._record)
+        return tep_data_type(self._pevent, self._record)
 
     def num_field(self, name):
-        f = pevent_find_any_field(self._format, name)
+        f = tep_find_any_field(self._format, name)
         if f is None:
             return None
-        ret, val = pevent_read_number_field(f, pevent_record_data_get(self._record))
+        ret, val = tep_read_number_field(f, tep_record_data_get(self._record))
         if ret:
             return None
         return val
 
     def str_field(self, name):
-        f = pevent_find_any_field(self._format, name)
+        f = tep_find_any_field(self._format, name)
         if f is None:
             return None
         return py_field_get_str(f, self._record)
@@ -126,7 +126,6 @@ class TraceSeq(object):
         self._trace_seq = trace_seq
 
     def puts(self, s):
-    	print "Help\n"
         return trace_seq_puts(self._trace_seq, s)
 
 class FieldError(Exception):
@@ -142,8 +141,8 @@ class Field(object):
         return py_field_get_data(self._field, self._record)
 
     def __long__(self):
-        ret, val =  pevent_read_number_field(self._field,
-                                             pevent_record_data_get(self._record))
+        ret, val =  tep_read_number_field(self._field,
+                                          tep_record_data_get(self._record))
         if ret:
             raise FieldError("Not a number field")
         return val
@@ -167,7 +166,7 @@ class PEvent(object):
 
     @cached_property
     def file_endian(self):
-        if pevent_is_file_bigendian(self._pevent):
+        if tep_is_file_bigendian(self._pevent):
             return '>'
         return '<'
 
@@ -204,8 +203,8 @@ class Trace(object):
     def read_event(self, cpu):
         rec = tracecmd_read_data(self._handle, cpu)
         if rec:
-            type = pevent_data_type(self._pevent, rec)
-            format = pevent_data_event_from_type(self._pevent, type)
+            type = tep_data_type(self._pevent, rec)
+            format = tep_find_event(self._pevent, type)
             # rec ownership goes over to Event instance
             return Event(self._pevent, rec, format)
         return None
@@ -216,8 +215,8 @@ class Trace(object):
         if isinstance(res, int):
             return None
         rec, cpu = res
-        type = pevent_data_type(self._pevent, rec)
-        format = pevent_data_event_from_type(self._pevent, type)
+        type = tep_data_type(self._pevent, rec)
+        format = tep_find_event(self._pevent, type)
         # rec ownership goes over to Event instance
         return Event(self._pevent, rec, format)
 
@@ -226,16 +225,16 @@ class Trace(object):
         if isinstance(res, int):
             return None
         rec, cpu = res
-        type = pevent_data_type(self._pevent, rec)
-        format = pevent_data_event_from_type(self._pevent, type)
+        type = tep_data_type(self._pevent, rec)
+        format = tep_find_event(self._pevent, type)
         return Event(self._pevent, rec, format)
 
     def peek_event(self, cpu):
         rec = tracecmd_peek_data_ref(self._handle, cpu)
         if rec is None:
             return None
-        type = pevent_data_type(self._pevent, rec)
-        format = pevent_data_event_from_type(self._pevent, type)
+        type = tep_data_type(self._pevent, rec)
+        format = tep_find_event(self._pevent, type)
         # rec ownership goes over to Event instance
         return Event(self._pevent, rec, format)
 
@@ -243,20 +242,13 @@ class Trace(object):
 # Basic builtin test, execute module directly
 if __name__ == "__main__":
     t = Trace("trace.dat")
-    print "Trace contains data for %d cpus" % (t.cpus)
+    print("Trace contains data for %d cpus" % (t.cpus))
 
     for cpu in range(0, t.cpus):
-        print "CPU %d" % (cpu)
+        print("CPU %d" % (cpu))
         ev = t.read_event(cpu)
         while ev:
-            print "\t%s" % (ev)
-            print "\tcomm: %s" % (ev.str_field("comm"))
-            pid = ev.num_field("pid")
-            if pid is not None:
-            	print "\tpid: %d" % (pid)
-            tgid = ev.num_field("tgid")
-            if tgid is not None:
-            	print "\ttgid: %d" % (tgid)
+            print("\t%s" % (ev))
             ev = t.read_event(cpu)
 
 
