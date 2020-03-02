@@ -33,6 +33,8 @@ Syslogger is also used as the trace backend for [BrezeFlow](https://github.com/a
 
 # Building
 
+## Kernel Module
+
 To build the syslogger kernel module the Makefile must be invoked with the kernel source directory passed in as `KDIR`. 
 
 For example, if your kernel source is in ~/linux then you would envoke make as follows
@@ -42,6 +44,47 @@ make KDIR=~/linux
 ```
 
 It should be noted that this has caused issues for me with version magic. As such I usually copy the sources into my kernel and perform an in-source build. See my [complete kernel](/home/alxhoff/Work/Optigame/android_builds/voodik/Android_7.1/android_source_xu3_Android7.1/kernel/hardkernel/odroidxu3) for a pre-modified Odroid XU3 kernel with syslogger already integrated. If you should opt to DIY then the only modifications required are the the [Kconfig](https://github.com/alxhoff/Odroid-XU3-Kernel/commit/ff3c6109baa84736ead0a099fbb9bcdae5817031#diff-61f226c1c1f3a78524783445250fe875) file as well as the [Makefile](https://github.com/alxhoff/Odroid-XU3-Kernel/commit/ff3c6109baa84736ead0a099fbb9bcdae5817031#diff-ba85cd02ff38397bfd6c84c770d5a699).
+
+## Trace-cmd
+
+Trace-cmd is needed/used for controlling ftrace as well as processing the output `.dat` files.
+
+*Note: you may need to set the system's python version to 2.7 to build trace-cmd*
+
+I was having problems with the Makefile finding my python libraries, hence the PYTHON_INCLUDES.
+
+``` bash
+git clone https://git.kernel.org/pub/scm/linux/kernel/git/rostedt/trace-cmd.git
+cd trace-cmd
+
+mkdir android
+sudo make LDFLAGS=-static CROSS_COMPILE=arm-linux-gnueabi- PYTHON_INCLUDES=-I/usr/include/python2.7 trace-cmd
+cp tracecmd/trace-cmd android/
+
+mkdir x86
+sudo make PYTHON_INCLUDES=-I/usr/include/python2.7 ctracecmd.so 
+sudo make PYTHON_INCLUDES=-I/usr/include/python2.7 trace-cmd
+cp tracecmd/trace-cmd python/ctracecmd.so x86/
+```
+Now we have built trace-cmd and it's python clib for the x86 host machine as well as a trace-cmd binary for the XU3. These binaries are also included in this repository [here (x86)](trace_conv) and [here (Android)](android). 
+
+### Fix for trace-cmd
+
+It seems that there is some missing definitions in the source. If you are getting an `undefined reference to 'add_event_pid'` error then the following patch will fix this.
+
+``` c
+diff --git a/tracecmd/trace-record.c b/tracecmd/trace-record.c
+index 0a3851a..483a8b1 100644
+--- a/tracecmd/trace-record.c
++++ b/tracecmd/trace-record.c
+@@ -1431,6 +1431,7 @@ static void ptrace_wait(enum trace_type type)
+ static inline void ptrace_wait(enum trace_type type) { }
+ static inline void enable_ptrace(void) { }
+ static inline void ptrace_attach(int pid) { }
++static inline void add_event_pid(const char *buf) {  }
+ 
+ #endif /* NO_PTRACE */
+```
 
 # Usage
 

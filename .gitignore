@@ -1,3 +1,7 @@
+trace_out
+trace.dat
+trace_conv/tracecmd.pyc
+
 # Prerequisites
 *.d
 

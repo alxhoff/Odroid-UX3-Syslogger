@@ -5,7 +5,7 @@ MYDIR="$(dirname "$(realpath "$0")")"
 generate_report=true
 trace_cg=false
 trace_threads=true
-trace_opengl=false
+trace_opengl=true
 trace_binder=true
 
 default_interval=5
@@ -96,7 +96,7 @@ setup()
 
     if [ "$trace_binder" == true ]; then
         APPEND="${APPEND} -e binder_transaction -e cpu_idle -e sched_switch"
-        printf "Binder, "
+        printf "Binder, CPU idle, Context switches, "
 	fi
 
     BUFFER_SIZE=20000
@@ -106,18 +106,22 @@ setup()
 		# We trace rougly 50mb per 30 second (mostly on little CPUs), make the
 		# buffers big enough. 8 * 40 MB -> 320 MB
 		BUFFER_SIZE=40000
+        printf "Threads,  "
 	fi
 
     if [ "$trace_opengl" == true ]; then
         SYSLOG_EVENTS="${SYSLOG_EVENTS} -e sys_logger:opengl_frame"
+        printf "OpenGL, "
     fi
+
+    printf "\n"
 
 	# clear all events if enything is pending
 	$MYDIR/trace-cmd reset > /dev/null
 
 	# start tracing so we can monitor forks of children (relevant for chrome)
 	$MYDIR/trace-cmd start \
-        $SYSLOG_EVENTS
+        $SYSLOG_EVENTS \
 		-i \
 		-b $BUFFER_SIZE \
 		-d -D \
@@ -200,7 +204,7 @@ finish()
 
         rm $MYDIR/*.report
 
-        $MYDIR/trace_cmd report -i $MYDIR/trace.dat > $MYDIR/trace.report
+        $MYDIR/trace-cmd report -i $MYDIR/trace.dat > $MYDIR/trace.report
     fi
 
 	# unload the module
@@ -270,6 +274,7 @@ while [[ $# -gt 0 ]]
 				exit 1
 			fi
             shift
+            echo "interval set"
             default_interval=$1
             shift
             ;;
