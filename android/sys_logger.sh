@@ -21,13 +21,13 @@ print_usage()
     echo ""
     echo "Setup"
     echo "-cg           Trace Chrome governor"
-    echo "-nt           Do not trace threads"
-    echo "-nb           Do not trace binder"
-    echo "-nogl         Do not trace OpenGL"
+    echo "-nt           Do not trace threads {sched:sched_process_fork}"
+    echo "-nb           Do not trace binder {binder_transaction, cpu_idle, sched_switch}"
+    echo "-nogl         Do not trace OpenGL {sys_logger:opengl_frame}"
     echo "-i            Syslogger logging interval, default = 5ms"
     echo ""
     echo "Finish"
-    echo "-nr           Do not generate ftrace report"
+    echo "-nr           Do not generate ftrace report (trace.report)"
 }
 
 is_loaded()
@@ -281,22 +281,22 @@ done
 
 PARAMS="${PARAMS} interval=${default_interval}"
 
-# case "$action" in
-#     setup)
-#         setup
-#         ;;
-#     start)
-#         start
-#         ;;
-#     stop)
-#         stop
-#         ;;
-#     finish)
-#         finish
-#         ;;
-#     *)
-#         print_usage
-#         exit 1
-# esac
+case "$action" in
+    setup)
+        setup
+        ;;
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    finish)
+        finish
+        ;;
+    *)
+        print_usage
+        exit 1
+esac
 
 exit 0
