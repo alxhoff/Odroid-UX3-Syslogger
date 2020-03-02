@@ -1,0 +1,31 @@
+diff --git a/sys_logger/trace_conv/trace_conv.py b/sys_logger/trace_conv/trace_conv.py
+index 75a66fc..8d42449 100755
+--- a/sys_logger/trace_conv/trace_conv.py
++++ b/sys_logger/trace_conv/trace_conv.py
+@@ -20,6 +20,8 @@ PL_POWER_A15='Power A15 [W]'
+ PL_POWER_A7='Power A7 [W]'
+ PL_POWER_MEM='Power Mem [W]'
+ PL_POWER_GPU='Power GPU [W]'
++PL_MALI_UTIL='Mali Util [%]'
++PL_MALI_FREQ='Mali Freq [Hz]'
+ PL_TEMP_A15_1='Temp A15 C1 [C]'
+ PL_TEMP_A15_2='Temp A15 C2 [C]'
+ PL_TEMP_A15_3='Temp A15 C3 [C]'
+@@ -474,6 +476,8 @@ class TraceStore:
+                 PL_POWER_A7,
+                 PL_POWER_MEM,
+                 PL_POWER_GPU,
++                PL_MALI_UTIL,
++                PL_MALI_FREQ,
+                 PL_TEMP_A15_1,
+                 PL_TEMP_A15_2,
+                 PL_TEMP_A15_3,
+@@ -514,6 +518,8 @@ class TraceStore:
+                                 if m.a15_2_temp != -1 else -1,
+                     PL_TEMP_A15_4 : m.a15_3_temp / 1000
+                                 if m.a15_3_temp != -1 else -1,
++                    PL_MALI_UTIL : m.gpu_load,
++                    PL_MALI_FREQ : m.gpu_freq,
+                     PL_FREQ_A15 : m.get_cpu(4).freq,
+                     PL_FREQ_A7 : m.get_cpu(0).freq,
+                     PL_USAGE_A15_1 : m.get_cpu(4).load,
