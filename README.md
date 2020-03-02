@@ -68,9 +68,11 @@ cp tracecmd/trace-cmd python/ctracecmd.so x86/
 ```
 Now we have built trace-cmd and it's python clib for the x86 host machine as well as a trace-cmd binary for the XU3. These binaries are also included in this repository [here (x86)](trace_conv) and [here (Android)](android). 
 
-### Fix for trace-cmd
+### Fixes for trace-cmd
 
-It seems that there is some missing definitions in the source. If you are getting an `undefined reference to 'add_event_pid'` error then the following patch will fix this.
+#### Undefined reference
+
+It seems that there is some missing definitions in the source. If you are getting an `undefined reference to 'add_event_pid'` error then the following patch will fix this. PR can be found [here](https://github.com/rostedt/trace-cmd/pull/14)
 
 ``` c
 diff --git a/tracecmd/trace-record.c b/tracecmd/trace-record.c
@@ -85,6 +87,9 @@ index 0a3851a..483a8b1 100644
  
  #endif /* NO_PTRACE */
 ```
+#### Global name `event_format_name_get` is not defined
+
+See [this](https://github.com/rostedt/trace-cmd/pull/13) PR.
 
 # Usage
 

@@ -1,5 +1,5 @@
-trace_out
-trace.dat
+trace_conv/trace_out
+trace_conv/trace.dat
 trace_conv/tracecmd.pyc
 
 .idea
