@@ -31,6 +31,10 @@ The system logger implements custom tracing for the following:
 
 Syslogger is also used as the trace backend for [BrezeFlow](https://github.com/alxhoff/BrezeFlow) by encorporating automated tracing of scheduling operations and binder transactions needed for the interpolation of system execution flows.
 
+# OpenGL Tracing
+
+The native OpenGL libraries require modification to enable tracing of frame information. See the folder [opengl_mods](opengl_mods) for more information.
+
 # Authors
 
 - Alex Hoffman (alex.hoffman@tum.de)
