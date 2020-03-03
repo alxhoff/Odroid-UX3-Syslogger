@@ -33,6 +33,27 @@ Syslogger is also used as the trace backend for [BrezeFlow](https://github.com/a
 
 # Building
 
+## Toolchain
+
+On Ubuntu systems the package `gcc-arm-linux-gnueabi` should be all you need.
+
+Otherwise you can build a toolchain from the Android NDK. Get a copy of the Android NDK, on Arch systems the NDK can be retrieved from the AUR repo `android-ndk`.
+
+from the NDK directory you can build the toolchain by running
+
+``` bash
+TOOLCHAIN_DIR=/path/to/your/desired/toolchain/location
+NDK_ROOT=/path/to/your/ndk/installation/directory
+$NDK_ROOT/build/tools/make-standalone-toolchain.sh --install-dir=$TOOLCHAIN_DIR --arch=arm
+```
+Where `TOOLCHAIN_DIR` is the desired install location.
+
+This toolchain dir should then be exported when it is to be used.
+
+``` bash
+export PATH=$TOOLCHAIN_DIR/bin:$PATH
+```
+
 ## Kernel Module
 
 To build the syslogger kernel module the Makefile must be invoked with the kernel source directory passed in as `KDIR`. 
@@ -57,14 +78,15 @@ I was having problems with the Makefile finding my python libraries, hence the P
 git clone https://git.kernel.org/pub/scm/linux/kernel/git/rostedt/trace-cmd.git
 cd trace-cmd
 
-mkdir android
-sudo make LDFLAGS=-static CROSS_COMPILE=arm-linux-gnueabi- PYTHON_INCLUDES=-I/usr/include/python2.7 trace-cmd
-cp tracecmd/trace-cmd android/
-
 mkdir x86
 sudo make PYTHON_INCLUDES=-I/usr/include/python2.7 ctracecmd.so 
 sudo make PYTHON_INCLUDES=-I/usr/include/python2.7 trace-cmd
 cp tracecmd/trace-cmd python/ctracecmd.so x86/
+
+export CC=arm-linux-gnueabi-gcc #fix for broken propogation of CROSS_COMPILE variable
+mkdir android
+sudo make LDFLAGS=-static CROSS_COMPILE=arm-linux-gnueabi- PYTHON_INCLUDES=-I/usr/include/python2.7 trace-cmd
+cp tracecmd/trace-cmd android/
 ```
 Now we have built trace-cmd and it's python clib for the x86 host machine as well as a trace-cmd binary for the XU3. These binaries are also included in this repository [here (x86)](trace_conv) and [here (Android)](android). 
 
