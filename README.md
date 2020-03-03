@@ -33,27 +33,6 @@ Syslogger is also used as the trace backend for [BrezeFlow](https://github.com/a
 
 # Building
 
-## Toolchain
-
-On Ubuntu systems the package `gcc-arm-linux-gnueabi` should be all you need.
-
-Otherwise you can build a toolchain from the Android NDK. Get a copy of the Android NDK, on Arch systems the NDK can be retrieved from the AUR repo `android-ndk`.
-
-from the NDK directory you can build the toolchain by running
-
-``` bash
-TOOLCHAIN_DIR=/path/to/your/desired/toolchain/location
-NDK_ROOT=/path/to/your/ndk/installation/directory
-$NDK_ROOT/build/tools/make-standalone-toolchain.sh --install-dir=$TOOLCHAIN_DIR --arch=arm
-```
-Where `TOOLCHAIN_DIR` is the desired install location.
-
-This toolchain dir should then be exported when it is to be used.
-
-``` bash
-export PATH=$TOOLCHAIN_DIR/bin:$PATH
-```
-
 ## Kernel Module
 
 To build the syslogger kernel module the Makefile must be invoked with the kernel source directory passed in as `KDIR`. 
@@ -65,6 +44,29 @@ make KDIR=~/linux
 ```
 
 It should be noted that this has caused issues for me with version magic. As such I usually copy the sources into my kernel and perform an in-source build. See my [complete kernel](/home/alxhoff/Work/Optigame/android_builds/voodik/Android_7.1/android_source_xu3_Android7.1/kernel/hardkernel/odroidxu3) for a pre-modified Odroid XU3 kernel with syslogger already integrated. If you should opt to DIY then the only modifications required are the the [Kconfig](https://github.com/alxhoff/Odroid-XU3-Kernel/commit/ff3c6109baa84736ead0a099fbb9bcdae5817031#diff-61f226c1c1f3a78524783445250fe875) file as well as the [Makefile](https://github.com/alxhoff/Odroid-XU3-Kernel/commit/ff3c6109baa84736ead0a099fbb9bcdae5817031#diff-ba85cd02ff38397bfd6c84c770d5a699).
+
+## Cross Compilation Toolchain (gcc-arm-linux-androideabi)
+
+On Ubuntu systems the package `gcc-arm-linux-gnueabi` should be all you need.
+
+Otherwise you can build a toolchain from the Android NDK. Get a copy of the Android NDK, on Arch systems the NDK can be retrieved from the AUR repo `android-ndk`.
+
+From the NDK directory you can build the toolchain by running
+
+``` bash
+TOOLCHAIN_DIR=/path/to/your/desired/toolchain/location
+NDK_ROOT=/path/to/your/ndk/installation/directory
+$NDK_ROOT/build/tools/make-standalone-toolchain.sh --install-dir=$TOOLCHAIN_DIR --arch=arm
+```
+Where `TOOLCHAIN_DIR` is the desired install location.
+
+This toolchain dir should then be exported when it is to be used.
+
+``` bash
+
+export PATH=$TOOLCHAIN_DIR/bin:$PATH
+
+```
 
 ## Trace-cmd
 
@@ -112,6 +114,10 @@ index 0a3851a..483a8b1 100644
 #### Global name `event_format_name_get` is not defined
 
 See [this](https://github.com/rostedt/trace-cmd/pull/13) PR.
+
+#### Problems cross compiling `trace-cmd`
+
+See [this](https://github.com/rostedt/trace-cmd/pull/16) PR.
 
 # Usage
 
