@@ -5,8 +5,7 @@ sys_logger-y := module.o
 EXTRA_CFLAGS = -I$(PWD)
 
 ARCH ?= arm
-#CROSS_COMPILE ?= arm-eabi-
-CROSS_COMPILE ?= /opt/toolchains/arm-eabi-4.8/bin/arm-eabi-
+CROSS_COMPILE ?= arm-eabi-
 
 default:
 	$(MAKE) -C $(KDIR) M=$(PWD) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) modules
