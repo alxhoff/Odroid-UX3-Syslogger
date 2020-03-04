@@ -24,6 +24,8 @@ args = parser.parse_args()
 # labels for the powerlogger CSV file
 PL_TIME = "Time [s]"
 PL_TIME_EXT = "Time External [ns]"
+PL_OPENGL_TS = "Frame ts [ns]"
+PL_OPENGL_PERIOD = "Inter-frame period [ns]"
 PL_POWER_A15 = "Power A15 [W]"
 PL_POWER_A7 = "Power A7 [W]"
 PL_POWER_MEM = "Power Mem [W]"
@@ -66,6 +68,8 @@ class MeasurementInfo:
         self.utime_ts = uptime_ts
         self.raw_ts = raw_ts
         self.real_ts = real_ts
+        self.opengl_ts = -1
+        self.opengl_period = -1
         self.a15_power = -1
         self.a7_power = -1
         self.mem_power = -1
@@ -203,6 +207,11 @@ class RunInfo:
             freq = ev.num_field("freq")
             self.measurements[-1].gpu_load = load
             self.measurements[-1].gpu_freq = freq
+        elif ev.name == "opengl_frame":
+            frame_ts = ev.num_field("ts")
+            frame_period = ev.num_field("period")
+            self.measurements[-1].opengl_ts = frame_ts
+            self.measurements[-1].opengl_period = frame_period
         elif ev.name == "cpu_info":
             cpu = ev.num_field("cpu")
             load = 0
@@ -321,7 +330,7 @@ class TraceStore:
         if (ev.name == "enabled" or ev.name == "iteration" or ev.name == "mali"
                 or ev.name == "cpu_info" or ev.name == "cpu_freq"
                 or ev.name == "ina231" or ev.name == "exynos_temp"
-                or ev.name == "net_stats"):
+                or ev.name == "net_stats" or ev.name == "opengl_frame"):
             return True
         return False
 
@@ -428,6 +437,7 @@ class TraceStore:
     def _process_event(self, ev):
         if not ev:
             return
+
         """
         We get all events from trace-cmd sorted by ts, even when
         recorded on different CPUs. Therefore no manual sorting necessary.
@@ -457,6 +467,9 @@ class TraceStore:
         if self._is_chrome_event(ev):
             self.runs[-1].new_chrome_event(ev)
             return
+
+        if ev.name == "opengl_frame":
+            print "wait here"
 
         # handle sys_logger measurements
         if self.state == TraceStoreState.START:
@@ -488,6 +501,8 @@ class TraceStore:
             fieldnames = [
                 PL_TIME,
                 PL_TIME_EXT,
+                PL_OPENGL_TS,
+                PL_OPENGL_PERIOD,
                 PL_POWER_A15,
                 PL_POWER_A7,
                 PL_POWER_MEM,
@@ -524,6 +539,10 @@ class TraceStore:
                     m.raw_ts / 1000000000.0,
                     PL_TIME_EXT:
                     m.real_ts,
+                    PL_OPENGL_TS:
+                    m.opengl_ts,
+                    PL_OPENGL_PERIOD:
+                    m.opengl_period,
                     PL_POWER_A15:
                     m.a15_power / 1000000.0 if m.a15_power != -1 else 0,
                     PL_POWER_A7:
