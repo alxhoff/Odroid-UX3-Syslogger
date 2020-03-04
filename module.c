@@ -14,6 +14,7 @@
 #include <linux/hrtimer.h>
 #include <linux/cpufreq.h>
 #include <linux/cpumask.h>
+#include <linux/miscdevice.h>
 #include <linux/netdevice.h>
 #include <linux/cdev.h>
 
@@ -26,7 +27,8 @@
 #define FIRST_MINOR     0
 #define MINOR_CNT   1
 
-#define KERNEL_ERROR_MSG(...) do { if (1) printk(KERN_ERR __VA_ARGS__); } while (0)
+#define KERNEL_ERROR_MSG(...) \             
+    do { if (1) printk(KERN_ERR __VA_ARGS__); } while (0)
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("David Hildenbrand");
@@ -97,10 +99,6 @@ struct file *exynos_temp;
 
 struct net_device *net_dev;
 
-static dev_t dev;
-static struct cdev c_dev;
-static struct class *cl;
-
 static int syslog_EGL_open(struct inode *i, struct file *f){return 0;}
 static int syslog_EGL_close(struct inode *i, struct file *f){return 0;}
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,35))
@@ -120,6 +118,18 @@ static struct file_operations syslog_EGL_fops =
 #else 
     .unlocked_ioctl = syslog_EGL_ioctl,
 #endif
+};
+
+/** char dev ioctl */
+/** static dev_t dev; */
+/** static struct cdev c_dev; */
+/** static struct class *cl; */
+/** misc dev ioctl */
+static struct miscdevice misc_dev = {
+    .minor = MISC_DYNAMIC_MINOR,
+    .name = EGL_SYSLOGGER_NAME,
+    .fops = &syslog_EGL_fops,
+    .mode = 0666,
 };
 
 static int param_set_enabled(const char *val, const struct kernel_param *kp)
@@ -146,44 +156,74 @@ static int param_set_enabled(const char *val, const struct kernel_param *kp)
 	return ret;
 }
 
+/** static char *device_node(struct device *dev, umode_t *mode) */
+/** { */
+/**     if(!mode) */
+/**         return NULL; */
+/**     *mode=0666; */
+/**     printk("New mode val: %u\n", *mode); */
+/**  */
+/**     return kasprintf(GFP_KERNEL, "%s", dev_name(dev)); */
+/** } */
+
 static int IOctlInit(void)
 {
     int ret;
-    struct device *dev_ret;
 
-    if((ret = alloc_chrdev_region(&dev, FIRST_MINOR, MINOR_CNT, EGL_SYSLOGGER_NAME)))
-        return ret;
+    /** CHAR DEV DRIVER */
+    /** struct device *dev_ret; */
+    /**  */
+    /** if((ret = alloc_chrdev_region(&dev, FIRST_MINOR, MINOR_CNT, EGL_SYSLOGGER_NAME))) */
+    /**     return ret; */
+    /**  */
+    /** cdev_init(&c_dev, &syslog_EGL_fops); */
+    /**  */
+    /** printk("EGL IOctl| cdev init'd\n"); */
+    /**  */
+    /** if((ret = cdev_add(&c_dev, dev, MINOR_CNT)) < 0) */
+    /**     return ret; */
+    /**  */
+    /** printk("EGL IOctl| cdev added\n"); */
+    /**  */
+    /** if(IS_ERR( cl = class_create(THIS_MODULE, EGL_SYSLOGGER_NAME "char"))) */
+    /** { */
+    /**     cdev_del(&c_dev); */
+    /**     unregister_chrdev_region(dev, MINOR_CNT); */
+    /**     return PTR_ERR(cl); */
+    /** } */
+    /**  */
+    /** cl->devnode = device_node; */
+    /**  */
+    /** printk("EGL IOctl| class created\n"); */
+    /**  */
+    /** if(IS_ERR(dev_ret = device_create(cl, NULL, dev, NULL, EGL_SYSLOGGER_NAME))) */
+    /** { */
+    /**     class_destroy(cl); */
+    /**     cdev_del(&c_dev); */
+    /**     unregister_chrdev_region(dev, MINOR_CNT); */
+    /**     return PTR_ERR(cl); */
+    /**  */
+    /** } */
 
-    cdev_init(&c_dev, &syslog_EGL_fops);
+    /** MISC DEV DRIVER */
+    ret = misc_register(&misc_dev);
+    if(ret)
+        printk("Unable to register EGL IOctl misc dev\n");
+    printk("Misc dev registered\n");
 
-    if((ret = cdev_add(&c_dev, dev, MINOR_CNT)) < 0)
-        return ret;
-
-    if(IS_ERR( cl = class_create(THIS_MODULE, EGL_SYSLOGGER_NAME "char")))
-    {
-        cdev_del(&c_dev);
-        unregister_chrdev_region(dev, MINOR_CNT);
-        return PTR_ERR(cl);
-    }
-
-    if(IS_ERR(dev_ret = device_create(cl, NULL, dev, NULL, EGL_SYSLOGGER_NAME)))
-    {
-        class_destroy(cl);
-        cdev_del(&c_dev);
-        unregister_chrdev_region(dev, MINOR_CNT);
-        return PTR_ERR(cl);
-
-    }
+    printk("EGL IOctl| init done\n");
 
     return 0;
 }
 
 static void IOctlExit(void)
 {
-    device_destroy(cl, dev);
-    class_destroy(cl);
-    cdev_del(&c_dev);
-    unregister_chrdev_region(dev, MINOR_CNT);
+    /** device_destroy(cl, dev); */
+    /** class_destroy(cl); */
+    /** cdev_del(&c_dev); */
+    /** unregister_chrdev_region(dev, MINOR_CNT); */
+
+    misc_deregister(&misc_dev);
 }
 
 static void __log_opengl_frame(struct EGLLogFrame *lf)
@@ -477,10 +517,12 @@ static long syslog_EGL_ioctl(struct file *f, unsigned int cmd, unsigned long arg
 {
     static struct EGLLogFrame lf;
 
+    printk("In EGL IOctl");
+
     switch(cmd){
         case IOCTL_EGL_LOG_FRAME:
             if(copy_from_user(&lf, (struct EGLLogFrame *)arg, sizeof(struct EGLLogFrame))){
-                KERNEL_ERROR_MSG("Syslog|ERROR: Copy from used failed\n");
+                KERNEL_ERROR_MSG("Syslog|ERROR: Copy from user failed\n");
                 return -EACCES;
             }
             __log_opengl_frame(&lf);         
