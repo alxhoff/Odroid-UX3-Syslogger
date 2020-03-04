@@ -10,8 +10,8 @@ trace_binder=true
 
 default_interval=5
 PARAMS="cpu=2"
-# PARAMS="cpu=2 interval=5"
 
+chmod 666 /dev/EGLSyslogger
 
 print_usage()
 {
@@ -51,7 +51,7 @@ is_enabled()
 
 setup()
 {
-    SYSLOG_EVENTS="-e sys_logger:cpu_info -e sys_logger:cpu_freq -e sys_logger:ina231 -e sys_logger:mali -e sys_logger:exynos_temp"
+    SYSLOG_EVENTS="-e sys_logger"
 
 	if is_loaded; then
 		echo "Error: Already setup!"
