@@ -11,8 +11,6 @@ trace_binder=true
 default_interval=5
 PARAMS="cpu=2"
 
-chmod 666 /dev/EGLSyslogger
-
 print_usage()
 {
     echo "Usage: $0 [setup (-cg) (-nt) (-nb) (-nogl) (-i) | start | stop | finish (-nr)]"
@@ -59,6 +57,9 @@ setup()
 
 	# `insmod $MYDIR/sys_logger.ko $PARAMS`
     `insmod /system/lib/modules/sys_logger.ko $PARAMS`
+
+    chmod 666 /dev/EGLSyslogger
+
 	ret=$?
 
 	if [ "$ret" != 0 ]; then

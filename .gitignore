@@ -3,6 +3,7 @@ trace_conv/trace.dat
 trace_conv/tracecmd.pyc
 trace.dat
 trace_out
+trace.report
 
 .idea
 

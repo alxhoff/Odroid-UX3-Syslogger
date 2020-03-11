@@ -1,9 +1,12 @@
 #!/usr/bin/python2
+from __future__ import division
 
 import sys
 import csv
 import json
 import argparse
+from itertools import starmap
+
 from tracecmd import *
 
 parser = argparse.ArgumentParser()
@@ -22,14 +25,18 @@ parser.add_argument(
 args = parser.parse_args()
 
 # labels for the powerlogger CSV file
+PL_UPTIME = "Uptime [s]"
 PL_TIME = "Time [s]"
 PL_TIME_EXT = "Time External [ns]"
-PL_OPENGL_TS = "Frame ts [ns]"
+PL_OPENGL_TS = "Frame ts [s]"
 PL_OPENGL_PERIOD = "Inter-frame period [ns]"
 PL_POWER_A15 = "Power A15 [W]"
 PL_POWER_A7 = "Power A7 [W]"
 PL_POWER_MEM = "Power Mem [W]"
 PL_POWER_GPU = "Power GPU [W]"
+PL_ENERGY_A15 = "Energy A15 [J]"
+PL_ENERGY_A7 = "Energy A7 [J]"
+PL_ENERGY_GPU = "Energy GPU [J]"
 PL_POWER_TOTAL = "Total Power [W]"
 PL_MALI_UTIL = "Mali Util [%]"
 PL_MALI_FREQ = "Mali Freq [Hz]"
@@ -53,6 +60,30 @@ PL_USAGE_A7_AVG = "Usage A7 Avg [%]"
 
 PL_ETH0_RX = "Usage ETH0 RX [#]"
 PL_ETH0_TX = "Usage ETH0 TX [#]"
+
+class FrameInfo:
+
+    _seen_first_frame = False
+
+    def __init__(self, start_time, duration, a15_energy, a7_energy, gpu_energy, mem_energy):
+        self.start_time = start_time
+        self.duration = duration
+        self.a15_energy = a15_energy
+        self.a7_energy = a7_energy
+        self.gpu_energy = gpu_energy
+        self.mem_energy = mem_energy
+
+    @staticmethod
+    def has_seen_start_frame():
+        return FrameInfo._seen_first_frame
+
+    @staticmethod
+    def create_frame(start_time, duration, a15_energy, a7_energy, gpu_energy, mem_energy):
+        if not FrameInfo._seen_first_frame:
+            FrameInfo._seen_first_frame = True # ignore first frame due to invalid inter-frame duration
+            return None
+        else:
+            return FrameInfo(start_time, duration, a15_energy, a7_energy, gpu_energy, mem_energy)
 
 
 class CPUInfo:
@@ -154,6 +185,7 @@ class RunInfo:
     def __init__(self):
         self.chrome_events = []
         self.measurements = []
+        self.frames = []
 
     def new_chrome_event(self, ev):
         if ev.name == "touch_start":
@@ -210,6 +242,13 @@ class RunInfo:
         elif ev.name == "opengl_frame":
             frame_ts = ev.num_field("ts")
             frame_period = ev.num_field("period")
+            a15_energy = ev.num_field("a15") / frame_period * 0.000000001
+            a7_energy = ev.num_field("a7") / frame_period * 0.000000001
+            gpu_energy = ev.num_field("gpu") / frame_period * 0.000000001
+            mem_energy = ev.num_field("mem") / frame_period * 0.000000001
+            new_frame = FrameInfo.create_frame(frame_ts, frame_period, a15_energy, a7_energy, gpu_energy, mem_energy)
+            if new_frame:
+                self.frames.append(new_frame)
             self.measurements[-1].opengl_ts = frame_ts
             self.measurements[-1].opengl_period = frame_period
         elif ev.name == "cpu_info":
@@ -468,9 +507,6 @@ class TraceStore:
             self.runs[-1].new_chrome_event(ev)
             return
 
-        if ev.name == "opengl_frame":
-            print "wait here"
-
         # handle sys_logger measurements
         if self.state == TraceStoreState.START:
             if self._is_iteration_marker(ev):
@@ -493,12 +529,42 @@ class TraceStore:
             else:
                 self.runs[-1].new_measurement(ev)
 
+    def write_framelogger_csv(self, output_folder, index):
+        run = self.runs[index]
+        filename = output_folder + "/framelogger-%d.csv" % index
+
+        with open(filename, "w") as csvfile:
+            fieldnames = [
+                    PL_TIME,
+                    PL_OPENGL_PERIOD,
+                    PL_ENERGY_A15,
+                    PL_ENERGY_A7,
+                    PL_ENERGY_GPU
+                    ]
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+
+            for frame in run.frames:
+                writer.writerow({
+                        PL_TIME:
+                        frame.start_time,
+                        PL_OPENGL_PERIOD:
+                        frame.duration,
+                        PL_ENERGY_A15:
+                        frame.a15_energy,
+                        PL_ENERGY_A7:
+                        frame.a7_energy,
+                        PL_ENERGY_GPU:
+                        frame.gpu_energy
+                        })
+
     def write_powerlogger_csv(self, output_folder, index):
         run = self.runs[index]
         filename = output_folder + "/powerlogger-%d.csv" % index
 
         with open(filename, "w") as csvfile:
             fieldnames = [
+                PL_UPTIME,
                 PL_TIME,
                 PL_TIME_EXT,
                 PL_OPENGL_TS,
@@ -535,6 +601,8 @@ class TraceStore:
 
             for m in run.measurements:
                 writer.writerow({
+                    PL_UPTIME:
+                    m.utime_ts,
                     PL_TIME:
                     m.raw_ts / 1000000000.0,
                     PL_TIME_EXT:
@@ -603,6 +671,7 @@ class TraceStore:
     def write_powerlogger_csvs(self, output_folder):
         for index in range(len(self.runs)):
             self.write_powerlogger_csv(output_folder, index)
+            self.write_framelogger_csv(output_folder, index)
 
     def write_threads_csv(self, output_folder):
         filename = output_folder + "/threads.csv"
