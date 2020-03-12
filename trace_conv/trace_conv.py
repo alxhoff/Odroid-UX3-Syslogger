@@ -25,9 +25,9 @@ parser.add_argument(
 args = parser.parse_args()
 
 # labels for the powerlogger CSV file
-PL_UPTIME = "Uptime [s]"
-PL_TIME = "Time [s]"
-PL_TIME_EXT = "Time External [ns]"
+PL_UPTIME = "Uptime [ns]"
+PL_TIME = "Raw Time [s]"
+PL_TIME_EXT = "Real Time [ns]"
 PL_OPENGL_TS = "Frame ts [s]"
 PL_OPENGL_PERIOD = "Inter-frame period [ns]"
 PL_POWER_A15 = "Power A15 [W]"
@@ -65,8 +65,10 @@ class FrameInfo:
 
     _seen_first_frame = False
 
-    def __init__(self, start_time, duration, a15_energy, a7_energy, gpu_energy, mem_energy):
-        self.start_time = start_time
+    def __init__(self, uptime_ts, raw_ts, user_space_frame_time, duration, a15_energy, a7_energy, gpu_energy, mem_energy):
+        self.uptime_ts = uptime_ts
+        self.raw_ts = raw_ts
+        self.user_space_frame_time = user_space_frame_time
         self.duration = duration
         self.a15_energy = a15_energy
         self.a7_energy = a7_energy
@@ -78,12 +80,14 @@ class FrameInfo:
         return FrameInfo._seen_first_frame
 
     @staticmethod
-    def create_frame(start_time, duration, a15_energy, a7_energy, gpu_energy, mem_energy):
+    def create_frame(uptime_ts, raw_ts, user_space_frame_time, duration, a15_energy, a7_energy, gpu_energy,
+                     mem_energy):
         if not FrameInfo._seen_first_frame:
             FrameInfo._seen_first_frame = True # ignore first frame due to invalid inter-frame duration
             return None
         else:
-            return FrameInfo(start_time, duration, a15_energy, a7_energy, gpu_energy, mem_energy)
+            return FrameInfo(uptime_ts, raw_ts, user_space_frame_time, duration, a15_energy, a7_energy, gpu_energy,
+                             mem_energy)
 
 
 class CPUInfo:
@@ -240,13 +244,17 @@ class RunInfo:
             self.measurements[-1].gpu_load = load
             self.measurements[-1].gpu_freq = freq
         elif ev.name == "opengl_frame":
+            frame_uptime_ts = ev.ts
+            frame_raw_ts = ev.num_field("raw")
+            frame_user_ts = ev.num_field("user_space_ts")
             frame_ts = ev.num_field("ts")
             frame_period = ev.num_field("period")
             a15_energy = ev.num_field("a15") / frame_period * 0.000000001
             a7_energy = ev.num_field("a7") / frame_period * 0.000000001
             gpu_energy = ev.num_field("gpu") / frame_period * 0.000000001
             mem_energy = ev.num_field("mem") / frame_period * 0.000000001
-            new_frame = FrameInfo.create_frame(frame_ts, frame_period, a15_energy, a7_energy, gpu_energy, mem_energy)
+            new_frame = FrameInfo.create_frame(frame_uptime_ts, frame_raw_ts, frame_user_ts, frame_period, a15_energy, a7_energy,
+                                               gpu_energy, mem_energy)
             if new_frame:
                 self.frames.append(new_frame)
             self.measurements[-1].opengl_ts = frame_ts
@@ -535,7 +543,9 @@ class TraceStore:
 
         with open(filename, "w") as csvfile:
             fieldnames = [
+                    PL_UPTIME,
                     PL_TIME,
+                    PL_OPENGL_TS,
                     PL_OPENGL_PERIOD,
                     PL_ENERGY_A15,
                     PL_ENERGY_A7,
@@ -546,8 +556,12 @@ class TraceStore:
 
             for frame in run.frames:
                 writer.writerow({
+                        PL_UPTIME:
+                        frame.uptime_ts,
                         PL_TIME:
-                        frame.start_time,
+                        frame.raw_ts / 1000000000.0,
+                        PL_OPENGL_TS:
+                        frame.user_space_frame_time,
                         PL_OPENGL_PERIOD:
                         frame.duration,
                         PL_ENERGY_A15:

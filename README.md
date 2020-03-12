@@ -1,12 +1,13 @@
 # System logger for Odroid XU3
 
-The system logger (syslogger) creates and traces, using ftrace, a number of custom trace points that extract system information from a combination of sysfs, kernel stats and device drivers.
+The system logger (syslogger) creates and traces, using ftrace, a number of custom trace points that extract system information from a combination of sysfs, kernel stats, device drivers as well as user-space IOctl "stat pipes".
 
 The system logger implements custom tracing for the following:
 
 - OpenGL frames:
     - Timestamps
     - Inter-frame periods
+    - All INA power data at the time of the frame swap
 - CPU info:
     - Online status
     - CPU time
