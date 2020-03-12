@@ -7,7 +7,8 @@ The system logger implements custom tracing for the following:
 - OpenGL frames:
     - Timestamps
     - Inter-frame periods
-    - All INA power data at the time of the frame swap
+    - Average wattage for each peripheral throughout the frame
+    - Energy usage by each peripheral throughout the frame
 - CPU info:
     - Online status
     - CPU time

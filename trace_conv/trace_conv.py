@@ -28,6 +28,7 @@ args = parser.parse_args()
 PL_UPTIME = "Uptime [ns]"
 PL_TIME = "Raw Time [s]"
 PL_TIME_EXT = "Real Time [ns]"
+PL_OPENGL_ID = "Frame No#"
 PL_OPENGL_TS = "Frame ts [s]"
 PL_OPENGL_PERIOD = "Inter-frame period [ns]"
 PL_POWER_A15 = "Power A15 [W]"
@@ -36,6 +37,7 @@ PL_POWER_MEM = "Power Mem [W]"
 PL_POWER_GPU = "Power GPU [W]"
 PL_ENERGY_A15 = "Energy A15 [J]"
 PL_ENERGY_A7 = "Energy A7 [J]"
+PL_ENERGY_MEM = "Energy Mem [J]"
 PL_ENERGY_GPU = "Energy GPU [J]"
 PL_POWER_TOTAL = "Total Power [W]"
 PL_MALI_UTIL = "Mali Util [%]"
@@ -57,23 +59,50 @@ PL_USAGE_A7_2 = "Usage A7 C2 [%]"
 PL_USAGE_A7_3 = "Usage A7 C3 [%]"
 PL_USAGE_A7_4 = "Usage A7 C4 [%]"
 PL_USAGE_A7_AVG = "Usage A7 Avg [%]"
-
 PL_ETH0_RX = "Usage ETH0 RX [#]"
 PL_ETH0_TX = "Usage ETH0 TX [#]"
 
 class FrameInfo:
 
     _seen_first_frame = False
+    frame_id = 0
 
-    def __init__(self, uptime_ts, raw_ts, user_space_frame_time, duration, a15_energy, a7_energy, gpu_energy, mem_energy):
+    def __init__(self, uptime_ts, raw_ts, user_space_frame_time, duration, a15_power, a7_power, gpu_power,
+                 mem_power):
+        self.id = self._get_id()
         self.uptime_ts = uptime_ts
         self.raw_ts = raw_ts
         self.user_space_frame_time = user_space_frame_time
         self.duration = duration
-        self.a15_energy = a15_energy
-        self.a7_energy = a7_energy
-        self.gpu_energy = gpu_energy
-        self.mem_energy = mem_energy
+        self.power_value_count = 1
+        self.a15_avg_power = a15_power
+        self.a7_avg_power = a7_power
+        self.gpu_avg_power = gpu_power
+        self.mem_avg_power = mem_power
+        self._refresh_energy()
+
+    @staticmethod
+    def _get_id():
+        FrameInfo.frame_id += 1
+        return FrameInfo.frame_id
+
+    def _refresh_energy(self):
+        self.a15_energy = self.a15_avg_power / 1000000.0 * (self.duration * 0.000000001)
+        self.a7_energy = self.a7_avg_power / 1000000.0 * (self.duration * 0.000000001)
+        self.gpu_energy = self.gpu_avg_power / 1000000.0 * (self.duration * 0.000000001)
+        self.mem_energy = self.mem_avg_power / 1000000.0 * (self.duration * 0.000000001)
+
+    @staticmethod
+    def _update_average(new_val, prev_val, val_count):
+        return prev_val + (new_val - prev_val) / val_count
+
+    def add_power_value(self, a15, a7, gpu, mem):
+        self.power_value_count += 1
+        self.a15_avg_power = self._update_average(a15, self.a15_avg_power, self.power_value_count)
+        self.a7_avg_power = self._update_average(a7, self.a7_avg_power, self.power_value_count)
+        self.gpu_avg_power = self._update_average(gpu, self.gpu_avg_power, self.power_value_count)
+        self.mem_avg_power = self._update_average(mem, self.mem_avg_power, self.power_value_count)
+        self._refresh_energy()
 
     @staticmethod
     def has_seen_start_frame():
@@ -103,8 +132,9 @@ class MeasurementInfo:
         self.utime_ts = uptime_ts
         self.raw_ts = raw_ts
         self.real_ts = real_ts
-        self.opengl_ts = -1
-        self.opengl_period = -1
+        self.opengl_id = 0
+        self.opengl_ts = 0
+        self.opengl_period = 0
         self.a15_power = -1
         self.a7_power = -1
         self.mem_power = -1
@@ -249,16 +279,18 @@ class RunInfo:
             frame_user_ts = ev.num_field("user_space_ts")
             frame_ts = ev.num_field("ts")
             frame_period = ev.num_field("period")
-            a15_energy = ev.num_field("a15") / frame_period * 0.000000001
-            a7_energy = ev.num_field("a7") / frame_period * 0.000000001
-            gpu_energy = ev.num_field("gpu") / frame_period * 0.000000001
-            mem_energy = ev.num_field("mem") / frame_period * 0.000000001
-            new_frame = FrameInfo.create_frame(frame_uptime_ts, frame_raw_ts, frame_user_ts, frame_period, a15_energy, a7_energy,
-                                               gpu_energy, mem_energy)
+            a15_power = ev.num_field("a15")
+            a7_power = ev.num_field("a7")
+            gpu_power = ev.num_field("gpu")
+            mem_power = ev.num_field("mem")
+            new_frame = FrameInfo.create_frame(frame_uptime_ts, frame_raw_ts, frame_user_ts, frame_period, a15_power, a7_power,
+                                               gpu_power, mem_power)
             if new_frame:
                 self.frames.append(new_frame)
-            self.measurements[-1].opengl_ts = frame_ts
-            self.measurements[-1].opengl_period = frame_period
+                self.measurements[-1].opengl_id = new_frame.id
+                self.measurements[-1].opengl_ts = frame_user_ts
+                self.measurements[-1].opengl_period = frame_period
+
         elif ev.name == "cpu_info":
             cpu = ev.num_field("cpu")
             load = 0
@@ -313,6 +345,8 @@ class RunInfo:
             self.measurements[-1].a7_power = a7
             self.measurements[-1].mem_power = mem
             self.measurements[-1].gpu_power = gpu
+            if len(self.frames) >= 1:
+                self.frames[-1].add_power_value(a15, a7, gpu, mem)
         elif ev.name == "exynos_temp":
             a15_0_temp = ev.num_field("t0")
             a15_1_temp = ev.num_field("t1")
@@ -546,10 +580,16 @@ class TraceStore:
                     PL_UPTIME,
                     PL_TIME,
                     PL_OPENGL_TS,
+                    PL_OPENGL_ID,
                     PL_OPENGL_PERIOD,
                     PL_ENERGY_A15,
                     PL_ENERGY_A7,
-                    PL_ENERGY_GPU
+                    PL_ENERGY_GPU,
+                    PL_ENERGY_MEM,
+                    "Avg " + PL_POWER_A15,
+                    "Avg " + PL_POWER_A7,
+                    "Avg " + PL_POWER_GPU,
+                    "Avg " + PL_POWER_MEM
                     ]
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
@@ -561,7 +601,9 @@ class TraceStore:
                         PL_TIME:
                         frame.raw_ts / 1000000000.0,
                         PL_OPENGL_TS:
-                        frame.user_space_frame_time,
+                        frame.user_space_frame_time / 1000000000.0,
+                        PL_OPENGL_ID:
+                        frame.id,
                         PL_OPENGL_PERIOD:
                         frame.duration,
                         PL_ENERGY_A15:
@@ -569,7 +611,17 @@ class TraceStore:
                         PL_ENERGY_A7:
                         frame.a7_energy,
                         PL_ENERGY_GPU:
-                        frame.gpu_energy
+                        frame.gpu_energy,
+                        PL_ENERGY_MEM:
+                        frame.mem_energy,
+                        "Avg " + PL_POWER_A15:
+                        frame.a15_avg_power / 1000000.0 ,
+                        "Avg " + PL_POWER_A7:
+                        frame.a7_avg_power / 1000000.0 ,
+                        "Avg " + PL_POWER_GPU:
+                        frame.gpu_avg_power / 1000000.0 ,
+                        "Avg " + PL_POWER_MEM:
+                        frame.mem_avg_power / 1000000.0
                         })
 
     def write_powerlogger_csv(self, output_folder, index):
@@ -581,6 +633,7 @@ class TraceStore:
                 PL_UPTIME,
                 PL_TIME,
                 PL_TIME_EXT,
+                PL_OPENGL_ID,
                 PL_OPENGL_TS,
                 PL_OPENGL_PERIOD,
                 PL_POWER_A15,
@@ -621,8 +674,10 @@ class TraceStore:
                     m.raw_ts / 1000000000.0,
                     PL_TIME_EXT:
                     m.real_ts,
+                    PL_OPENGL_ID:
+                    m.opengl_id,
                     PL_OPENGL_TS:
-                    m.opengl_ts,
+                    m.opengl_ts / 1000000000.0,
                     PL_OPENGL_PERIOD:
                     m.opengl_period,
                     PL_POWER_A15:
