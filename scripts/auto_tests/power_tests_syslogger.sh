@@ -3,7 +3,7 @@
 DATA_DIR="/data/local/tmp"
 RESULT_DIR=$1
 TRACE_CONV_DIR="../../trace_conv"
-TEST_DUR=40
+TEST_DUR=$2
 
 L_CPUS=(cpu0 cpu1 cpu2 cpu3)
 B_CPUS=(cpu4 cpu5 cpu6 cpu7)

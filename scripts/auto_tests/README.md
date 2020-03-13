@@ -57,4 +57,4 @@ Usage: the only argument the script takes is the output directory where the test
 
 Similar to the previous script, this script tests also tests all possible frequency combinations while instead of using the stresstester the script prompts the user when to use the system, eg. play a game, such that organic workloads can be used.
 
-Usage: same as [`power_tests_simulator_syslogger`](power_tests_simulator_syslogger.sh).
+Usage: First argument is the output directory and the second argument gives, in seconds, the duration of each individual test.
