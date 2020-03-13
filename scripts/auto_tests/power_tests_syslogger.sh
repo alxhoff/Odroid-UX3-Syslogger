@@ -155,7 +155,7 @@ function setGPUFreq {
 }
 
 function setupStartSyslogger {
-    adb shell ".$DATA_DIR/sys_logger.sh setup $SYSLOG_PARAMS"
+    adb shell ".$DATA_DIR/sys_logger.sh setup -r trace.record -d $TEST_DUR $SYSLOG_PARAMS"
     wait
     adb shell ".$DATA_DIR/sys_logger.sh start"
     wait
@@ -193,6 +193,7 @@ function pullConvTraceDat {
     sleep 2
     cp /tmp/trace_out/powerlogger-0.csv $RESULT_DIR/power_$1.csv
     cp /tmp/trace_out/framelogger-0.csv $RESULT_DIR/frame_$1.csv
+    wait
     echo "Moving /tmp/trace_out/powerlogger-0.csv to $RESULT_DIR/$1.csv"
     # cleanUp
 }
@@ -233,8 +234,6 @@ function runTest {
 
     while : ; do
         setupStartSyslogger
-        echo "Test started, running for $TEST_DUR seconds"
-        sleep $TEST_DUR
         stopFinishSyslogger
 
         if [ ! "$AUTO_TEST" -eq 1 ]; then

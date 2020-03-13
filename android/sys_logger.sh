@@ -7,9 +7,21 @@ trace_cg=false
 trace_threads=true
 trace_opengl=true
 trace_binder=true
-
+trace_record=false
+record_duration=5
 default_interval=5
 PARAMS="cpu=2"
+
+fix_ro_filesystem(){
+    if [[ $(cat /proc/mounts | grep 'ro,') ]]; then
+        echo "File system is read only, fixing"
+        # mount -o rw,remount /system
+        mount -o rw,remount /
+        chmod 777 /system/lib
+    fi
+}
+
+fix_ro_filesystem
 
 print_usage()
 {
@@ -23,7 +35,9 @@ print_usage()
     echo "-nb           Do not trace binder {binder_transaction, cpu_idle, sched_switch}"
     echo "-nogl         Do not trace OpenGL {sys_logger:opengl_frame}"
     echo "-i            Syslogger logging interval, default = 5ms"
-    echo ""
+    echo "-r            Record straight to a trace.dat"
+    echo "-d            Record duration, default 5 seconds"
+    echo " "
     echo "Finish"
     echo "-nr           Do not generate ftrace report (trace.report)"
 }
@@ -55,8 +69,8 @@ setup()
 		echo "Error: Already setup!"
 	fi
 
-	# `insmod $MYDIR/sys_logger.ko $PARAMS`
     `insmod /system/lib/modules/sys_logger.ko $PARAMS`
+    rm /data/local/tmp/trace.dat
 
     chmod 666 /dev/EGLSyslogger
 
@@ -121,12 +135,21 @@ setup()
 	$MYDIR/trace-cmd reset > /dev/null
 
 	# start tracing so we can monitor forks of children (relevant for chrome)
-	$MYDIR/trace-cmd start \
-        $SYSLOG_EVENTS \
-		-i \
-		-b $BUFFER_SIZE \
-		-d -D \
-		$APPEND
+    echo "Trace-cmd events: $SYSLOG_EVENTS"
+
+    if [ ! $trace_record -eq true ]; then
+        echo "STARTING trace-cmd"
+        $MYDIR/trace-cmd start \
+            $SYSLOG_EVENTS \
+            -i \
+            -b $BUFFER_SIZE \
+            -d -D \
+            $APPEND
+    else
+        echo "RECORDING trace-cmd for $record_duration seconds"
+	    echo 1 > /sys/module/sys_logger/parameters/enabled
+        timeout -s SIGINT $record_duration $MYDIR/trace-cmd record $SYSLOG_EVENTS -i -o /data/local/tmp/trace.dat -d -D $APPEND
+    fi
 
 	ret=$?
 	if [ "$ret" != 0 ]; then
@@ -156,7 +179,9 @@ start()
 	fi
 
 	# start a new measurement run
-	echo 1 > /sys/module/sys_logger/parameters/enabled
+    if [ ! $trace_record -eq true ]; then
+	    echo 1 > /sys/module/sys_logger/parameters/enabled
+    fi
 }
 
 stop()
@@ -191,14 +216,16 @@ finish()
 		stop
 	fi
 
-	# stop tracing
-	$MYDIR/trace-cmd stop
+    if [ ! $trace_record -eq true ]; then
+        # stop tracing
+        $MYDIR/trace-cmd stop
 
-	# write the trace.dat file
-	$MYDIR/trace-cmd extract -o $MYDIR/trace.dat
+        # write the trace.dat file
+        $MYDIR/trace-cmd extract -o $MYDIR/trace.dat
 
-	# turn of and reset all tracing
-	$MYDIR/trace-cmd reset
+        # turn of and reset all tracing
+        $MYDIR/trace-cmd reset
+    fi
 
     if [ "$generate_report" == true ]; then
         echo "Generating trace report"
@@ -277,6 +304,17 @@ while [[ $# -gt 0 ]]
             shift
             echo "interval set"
             default_interval=$1
+            shift
+            ;;
+        -r|--record)
+            trace_record=true
+            shift
+            record_file=$MYDIR/$1
+            shift
+            ;;
+        -d|--duration)
+            shift
+            record_duration=$1
             shift
             ;;
 		*)
