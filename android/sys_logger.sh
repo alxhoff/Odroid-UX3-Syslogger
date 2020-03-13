@@ -74,7 +74,7 @@ setup()
 		rmmod sys_logger
 		sleep 3
 
-		`insmod $MYDIR/sys_logger.ko $PARAMS`
+		# `insmod $MYDIR/sys_logger.ko $PARAMS`
 		ret=$?
 
 		if [ "$ret" != 0 ]; then
@@ -195,7 +195,7 @@ finish()
 	$MYDIR/trace-cmd stop
 
 	# write the trace.dat file
-	$MYDIR/trace-cmd extract -o $MYDIR/trace.dat
+	$MYDIR/trace-cmd extract -o $MYDIR/trace.dat &>/dev/null
 
 	# turn of and reset all tracing
 	$MYDIR/trace-cmd reset
@@ -209,7 +209,7 @@ finish()
     fi
 
 	# unload the module
-	rmmod $MYDIR/sys_logger.ko
+	rmmod /system/lib/modules/sys_logger.ko
 }
 
 if [ $# -lt 1 ]; then
