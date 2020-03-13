@@ -3,10 +3,13 @@
 print_usage() {
     echo "Usage: $0 -o -d (--auto) (-t)"
     echo ""
-    echo "-o, --out_dir:       Output directory where the results should be stored"
-    echo "-d, --duration:      Duration, in seconds, of each individual test"
-    echo "-a, --auto:               Script will not prompt user to continue between tests"
-    echo "-t, --trace_conv:    Custom location of trace conv"
+    echo "-o,  --out_dir:       Output directory where the results should be stored"
+    echo "-d,  --duration:      Duration, in seconds, of each individual test"
+    echo "-a,  --auto:          Script will not prompt user to continue between tests"
+    echo "-t,  --trace_conv:    Custom location of trace conv"
+    echo "-b,  --brezeflow:     Trace BrezeFlow dependencies"
+    echo "-gl, --opengl         Trace opengl"
+    echo "-tr, --threads        Trace threads"
 }
 
 if [ "$#" -lt 2 ]; then
@@ -17,6 +20,9 @@ fi
 
 DATA_DIR="/data/local/tmp"
 TRACE_CONV_DIR="../../trace_conv"
+TRACE_BREZE=0
+TRACE_THREADS=0
+TRACE_OPENGL=0
 
 while [[ $# -gt 0 ]]
     do
@@ -42,11 +48,39 @@ while [[ $# -gt 0 ]]
             TRACE_CONV_DIR=$1
             shift
             ;;
+        -b|--brezeflow)
+            TRACE_BREZE=1
+            shift
+            ;;
+        -gl|--opengl)
+            TRACE_OPENGL=1
+            shift
+            ;;
+        -tr|--threads)
+            TRACE_THREADS=1
+            shift
+            ;;
         *)
             print_usage
             exit 1
     esac
 done
+
+SYSLOG_PARAMS=""
+
+if [ $TRACE_BREZE -eq 0 ]; then
+    SYSLOG_PARAMS="-nb"
+fi
+
+if [ $TRACE_OPENGL -eq 0 ]; then
+    SYSLOG_PARAMS="${SYSLOG_PARAMS} -nogl"
+fi
+
+if [ $TRACE_THREADS -eq 0 ]; then
+    SYSLOG_PARAMS="${SYSLOG_PARAMS} -nt"
+fi
+
+echo "Syslogger params: $SYSLOG_PARAMS"
 
 L_CPUS=(cpu0 cpu1 cpu2 cpu3)
 B_CPUS=(cpu4 cpu5 cpu6 cpu7)
@@ -121,7 +155,7 @@ function setGPUFreq {
 }
 
 function setupStartSyslogger {
-    adb shell ".$DATA_DIR/sys_logger.sh setup -nt"
+    adb shell ".$DATA_DIR/sys_logger.sh setup $SYSLOG_PARAMS"
     wait
     adb shell ".$DATA_DIR/sys_logger.sh start"
     wait
@@ -130,7 +164,7 @@ function setupStartSyslogger {
 function stopFinishSyslogger {
     adb shell ".$DATA_DIR/sys_logger.sh stop"
     wait
-    adb shell ".$DATA_DIR/sys_logger.sh finish"
+    adb shell ".$DATA_DIR/sys_logger.sh finish -nr"
     wait
 }
 

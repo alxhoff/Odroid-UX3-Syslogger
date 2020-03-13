@@ -195,7 +195,7 @@ finish()
 	$MYDIR/trace-cmd stop
 
 	# write the trace.dat file
-	$MYDIR/trace-cmd extract -o $MYDIR/trace.dat &>/dev/null
+	$MYDIR/trace-cmd extract -o $MYDIR/trace.dat
 
 	# turn of and reset all tracing
 	$MYDIR/trace-cmd reset
