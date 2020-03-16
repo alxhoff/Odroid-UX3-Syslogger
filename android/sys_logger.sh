@@ -37,6 +37,7 @@ print_usage()
     echo "-r            Record straight to a trace.dat"
     echo " "
     echo "Finish"
+    echo "-r            Must be given if recording was specified during setup"
     echo "-nr           Do not generate ftrace report (trace.report)"
 }
 

@@ -135,7 +135,7 @@ adb push android/trace-cmd /data/local/tmp/trace-cmd
 Usage of the script is as follows:
 
 ``` bash
-Usage: ./sys_logger.sh [setup (-cg) (-nt) (-nb) (-nogl) (-i) | start | stop | finish (-nr)]
+Usage: android/sys_logger.sh [setup (-cg) (-nt) (-nb) (-nogl) (-i) | start | stop | finish (-nr)]
 
 Syslogger workflow: Setup -> Start -> Stop -> Finish
 
@@ -145,10 +145,14 @@ Setup
 -nb           Do not trace binder {binder_transaction, cpu_idle, sched_switch}
 -nogl         Do not trace OpenGL {sys_logger:opengl_frame}
 -i            Syslogger logging interval, default = 5ms
-
+-r            Record straight to a trace.dat
+ 
 Finish
+-r            Must be given if recording was specified during setup
 -nr           Do not generate ftrace report (trace.report)
 ```
+There are two modes of executing `trace-cmd`. Either `trace-cmd` executes using [`trace-cmd-start`](https://linux.die.net/man/1/trace-cmd-start) or using [`trace-cmd-record`](https://linux.die.net/man/1/trace-cmd-record). Standard execution (using start) means that once ftrace's ring buffer is full events will start being dropped. In practise this means that traces over about 1-5 seconds will start to drop large quantities of trace data. `record` spawns worker threads that pipe the ring buffer into temp files, at a given interval. This means that your trace "buffer" is only limited by the storage capactity of your system. This is the prefered method of tracing and to do so you must provide the `-r` option during `setup` and `finish`.
+
 ## Converting trace data (trace.dat)
 
 To convert the binary trace data to usable data the script [trace_conv.py](trace_conv/trace_conv.py) can be used, similarly the [trace-cmd](trace_conv/trace-cmd) binary can be used directly from python to parse `.dat` files. See [here](https://github.com/alxhoff/BrezeFlow/blob/dc9b6bf8c64ce2d6e1f0e10d5ca02220d1a3f35d/TraceCMDParser.py#L69).
