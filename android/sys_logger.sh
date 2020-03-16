@@ -8,7 +8,6 @@ trace_threads=true
 trace_opengl=true
 trace_binder=true
 trace_record=false
-record_duration=5
 default_interval=5
 PARAMS="cpu=2"
 
@@ -36,7 +35,6 @@ print_usage()
     echo "-nogl         Do not trace OpenGL {sys_logger:opengl_frame}"
     echo "-i            Syslogger logging interval, default = 5ms"
     echo "-r            Record straight to a trace.dat"
-    echo "-d            Record duration, default 5 seconds"
     echo " "
     echo "Finish"
     echo "-nr           Do not generate ftrace report (trace.report)"
@@ -137,7 +135,7 @@ setup()
 	# start tracing so we can monitor forks of children (relevant for chrome)
     echo "Trace-cmd events: $SYSLOG_EVENTS"
 
-    if [ ! $trace_record -eq true ]; then
+    if [ ! $trace_record -eq false ]; then
         echo "STARTING trace-cmd"
         $MYDIR/trace-cmd start \
             $SYSLOG_EVENTS \
@@ -146,9 +144,11 @@ setup()
             -d -D \
             $APPEND
     else
-        echo "RECORDING trace-cmd for $record_duration seconds"
-	    echo 1 > /sys/module/sys_logger/parameters/enabled
-        timeout -s SIGINT $record_duration $MYDIR/trace-cmd record $SYSLOG_EVENTS -i -o /data/local/tmp/trace.dat -d -D $APPEND
+        $MYDIR/trace-cmd record $SYSLOG_EVENTS -i -o /data/local/tmp/trace.dat -d -D $APPEND > /dev/null 2>&1 &
+        echo "RECORDING trace-cmd in background [$(jobs -p)], syslogger must still be enabled (started)"
+        echo "$(jobs -p)" > .trace.pid
+        sleep 5
+        # timeout -s SIGINT $record_duration $MYDIR/trace-cmd record $SYSLOG_EVENTS -i -o /data/local/tmp/trace.dat -d -D $APPEND &
     fi
 
 	ret=$?
@@ -179,9 +179,9 @@ start()
 	fi
 
 	# start a new measurement run
-    if [ ! $trace_record -eq true ]; then
-	    echo 1 > /sys/module/sys_logger/parameters/enabled
-    fi
+    # if [ ! $trace_record -eq true ]; then
+	echo 1 > /sys/module/sys_logger/parameters/enabled
+    # fi
 }
 
 stop()
@@ -216,16 +216,22 @@ finish()
 		stop
 	fi
 
-    if [ ! $trace_record -eq true ]; then
+    if [ ! $trace_record -eq false ]; then
         # stop tracing
         $MYDIR/trace-cmd stop
 
         # write the trace.dat file
         $MYDIR/trace-cmd extract -o $MYDIR/trace.dat
-
-        # turn of and reset all tracing
-        $MYDIR/trace-cmd reset
+    else
+        while read x; do
+            echo "Killing [$x]"
+            kill -INT $x
+            wait
+        done < .trace.pid
     fi
+
+    # turn of and reset all tracing
+    $MYDIR/trace-cmd reset
 
     if [ "$generate_report" == true ]; then
         echo "Generating trace report"
@@ -233,6 +239,7 @@ finish()
         rm $MYDIR/*.report
 
         $MYDIR/trace-cmd report -i $MYDIR/trace.dat > $MYDIR/trace.report
+        wait
     fi
 
 	# unload the module
@@ -308,13 +315,6 @@ while [[ $# -gt 0 ]]
             ;;
         -r|--record)
             trace_record=true
-            shift
-            record_file=$MYDIR/$1
-            shift
-            ;;
-        -d|--duration)
-            shift
-            record_duration=$1
             shift
             ;;
 		*)

@@ -155,7 +155,7 @@ function setGPUFreq {
 }
 
 function setupStartSyslogger {
-    adb shell ".$DATA_DIR/sys_logger.sh setup -r trace.record -d $TEST_DUR $SYSLOG_PARAMS"
+    adb shell ".$DATA_DIR/sys_logger.sh setup -r $SYSLOG_PARAMS"
     wait
     adb shell ".$DATA_DIR/sys_logger.sh start"
     wait
@@ -164,7 +164,7 @@ function setupStartSyslogger {
 function stopFinishSyslogger {
     adb shell ".$DATA_DIR/sys_logger.sh stop"
     wait
-    adb shell ".$DATA_DIR/sys_logger.sh finish -nr"
+    adb shell ".$DATA_DIR/sys_logger.sh finish -r -nr"
     wait
 }
 
@@ -195,7 +195,7 @@ function pullConvTraceDat {
     cp /tmp/trace_out/framelogger-0.csv $RESULT_DIR/frame_$1.csv
     wait
     echo "Moving /tmp/trace_out/powerlogger-0.csv to $RESULT_DIR/$1.csv"
-    # cleanUp
+    cleanUp
 }
 
 # $1: little freq
@@ -234,6 +234,7 @@ function runTest {
 
     while : ; do
         setupStartSyslogger
+        sleep $TEST_DUR
         stopFinishSyslogger
 
         if [ ! "$AUTO_TEST" -eq 1 ]; then
