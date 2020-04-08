@@ -13,6 +13,7 @@ trace.report
 # Object files
 *.o
 *.ko
+!android/sys_logger.ko
 *.obj
 *.elf
 
