@@ -60,3 +60,4 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+!trace_conv/ctracecmd.so
