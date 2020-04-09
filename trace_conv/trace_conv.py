@@ -313,7 +313,10 @@ class RunInfo:
                         continue
 
                 prev = self.measurements[i].get_cpu(cpu)
-                diff_user = user - prev.user
+                try:
+                    diff_user = user - prev.user
+                except Exception as e:
+                    pass
                 diff_system = system - prev.system
                 diff_idle = idle - prev.idle
 
