@@ -169,6 +169,11 @@ python trace_conv/trace_conv.py -i trace.dat -o trace_out
 
 The native OpenGL libraries require modification to enable tracing of frame information. See the folder [opengl_mods](opengl_mods) for more information.
 
+# INA231 Power Sensors
+
+Using the syslogger with the Odroid XU3 usually pivots around the use of the on-board INA231 power sensors. By default their functionality is not very fleshed out and they do not provide great resolution for a lot of use cases. 
+To increase their usefulness please see [this](https://github.com/alxhoff/Odroid-XU3-Kernel/commit/680fde123cfd7480889a3cedc700422f195b7782) commit where I have increased the functionality of the devices 10 fold. The script [`ina231_control.sh`](scripts/ina231_control.sh) can only be used if the changes are applied to the ina231 driver.
+
 # Authors
 
 - Alex Hoffman (alex.hoffman@tum.de)
